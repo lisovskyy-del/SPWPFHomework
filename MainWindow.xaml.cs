@@ -17,7 +17,11 @@ namespace SPWPFHomework
     /// </summary>
     public partial class MainWindow : Window
     {
-        long bottom;
+        private CancellationTokenSource _primeCts;
+        private CancellationTokenSource _fibCts;
+
+        private bool _primeIsPaused = true; // воно на true для того щоб показати як працює пауза.
+        private bool _fibonacciIsPaused = true;
 
         public MainWindow()
         {
@@ -31,6 +35,9 @@ namespace SPWPFHomework
 
         private void ExecuteButton_OnClick(object sender, RoutedEventArgs e)
         {
+            _primeCts = new CancellationTokenSource();
+            _fibCts = new CancellationTokenSource();
+
             LoggerTextBox.Clear();
 
             if (!long.TryParse(BottomTextBox.Text, out long bottom) ||
@@ -47,6 +54,7 @@ namespace SPWPFHomework
 
             var primeThread = new Thread(() =>
             {
+
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     LoggerTextBox.Text += "Починаємо підрахунок простих чисел...";
@@ -55,7 +63,7 @@ namespace SPWPFHomework
                 try
                 {
                     var sw = Stopwatch.StartNew();
-                    long result = ComputePrimes(bottom, top);
+                    long result = ComputePrimes(bottom, top, _primeCts.Token);
 
                     sw.Stop();
 
@@ -73,7 +81,7 @@ namespace SPWPFHomework
                             });
 
                             var sw2 = Stopwatch.StartNew();
-                            long result = ComputeFibonacci(n);
+                            long result = ComputeFibonacci(n, _fibCts.Token);
 
                             sw2.Stop();
 
@@ -97,8 +105,53 @@ namespace SPWPFHomework
             primeThread.Start();
         }
 
-        long ComputePrimes(long bottom, long upTo)
+        private void RestartButton_OnClick(object sender, RoutedEventArgs e)
         {
+            _primeCts?.Cancel();
+            _fibCts?.Cancel();
+
+            _primeCts = new CancellationTokenSource();
+            _fibCts = new CancellationTokenSource();
+
+            _primeIsPaused = false;
+            _fibonacciIsPaused = false;
+
+            ExecuteButton_OnClick(sender, e);
+        }
+
+        private void SuspendPrimeButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _primeCts?.Cancel();
+        }
+
+        private void SuspendFibonacciButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _fibCts?.Cancel();
+        }
+
+        private void StopPrimeButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _primeIsPaused = true;
+        }
+
+        private void ResumePrimeButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _primeIsPaused = false;
+        }
+
+        private void StopFibonacciButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _fibonacciIsPaused = true;
+        }
+
+        private void ResumeFibonacciButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _fibonacciIsPaused = false;
+        }
+
+        long ComputePrimes(long bottom, long upTo, CancellationToken token)
+        {
+
             long count = 0;
 
             if (bottom < 2) // bottom потрібно вказати в
@@ -110,6 +163,16 @@ namespace SPWPFHomework
 
             for (long n = bottom; n <= upTo; n++)
             {
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                while (_primeIsPaused)
+                {
+                    Thread.Sleep(100);
+                }
+
                 bool isPrime = true;
                 for (long d = bottom; d * d <= n; d++)
                 {
@@ -124,12 +187,14 @@ namespace SPWPFHomework
                         LoggerTextBox.Text += $"\n{n}";
                         LoggerTextBox.ScrollToEnd(); // авто-скрол вниз
                     });
+
+                    Thread.Sleep(10); // для ефективності можна прибрати
                 }
             }
             return count;
         }
 
-        long ComputeFibonacci(long n)
+        long ComputeFibonacci(long n, CancellationToken token)
         {
             if (n <= 0) return 0;
             if (n == 1) return 1;
@@ -140,6 +205,16 @@ namespace SPWPFHomework
 
             for (int i = 2; i <= n; i++)
             {
+                if (token.IsCancellationRequested)
+                {
+                    break;
+                }
+
+                while (_fibonacciIsPaused)
+                {
+                    Thread.Sleep(100);
+                }
+
                 c = a + b;
                 a = b;
                 b = c;
@@ -149,6 +224,8 @@ namespace SPWPFHomework
                     LoggerTextBox.Text += $"\n{c}";
                     LoggerTextBox.ScrollToEnd(); // авто-скрол вниз
                 });
+
+                Thread.Sleep(10); // для ефективності можна прибрати
             }
 
             return c;

@@ -23,5 +23,13 @@
              IsReadOnly="True"/>
 
         <Button x:Name="ExecuteButton" Click="ExecuteButton_OnClick">Обчислити</Button>
+        <Button x:Name="SuspendPrimeButton" Click="SuspendPrimeButton_OnClick">Повністю припинити потік для простих чисел</Button>
+        <Button x:Name="SuspendFibonacciButton" Click="SuspendFibonacciButton_OnClick">Повністю припинити потік для чисел фібоначчі</Button>
+        <Button x:Name="StopPrimeButton" Click="StopPrimeButton_OnClick">Зупинити потік для простих чисел</Button>
+        <Button x:Name="ResumePrimeButton" Click="ResumePrimeButton_OnClick">Відновити потік для простих чисел</Button>
+        <Button x:Name="StopFibonacciButton" Click="StopFibonacciButton_OnClick">Зупинити потік для чисел фібоначчі</Button>
+        <Button x:Name="ResumeFibonacciButton" Click="ResumeFibonacciButton_OnClick">Відновити потік для чисел фібоначчі</Button>
+        <Button x:Name="RestartButton" Click="RestartButton_OnClick">Перезапустити потоки</Button>
+        
     </StackPanel>
 </Window>
