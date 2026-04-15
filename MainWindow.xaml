@@ -14,20 +14,34 @@
         <TextBox x:Name="TopTextBox" Width="200"/>
 
         <TextBlock Text="Числа Фібоначчі. Введіть число:"/>
-        <TextBox x:Name="PrimeTextBox" Width="200"/>
+        <TextBox x:Name="FibonacciTextBox" Width="200"/>
+
+        <TextBlock Text="Лог роботи:"></TextBlock>
+        <TextBox x:Name="LoggerTextBox" Width="500" Height="50"></TextBox>
 
         <TextBlock Text="Лог виконання:"/>
-        <TextBox x:Name="LoggerTextBox"
+
+        <Grid>
+            <StackPanel HorizontalAlignment="Center" Orientation="Horizontal">
+                <TextBox x:Name="PrimeLoggerTextBox"
+             Width="300"
+             Height="150"
+             IsReadOnly="True"
+             Margin="0,10,15,10"/>
+
+                <TextBox x:Name="FibonacciLoggerTextBox"
              Width="300"
              Height="150"
              IsReadOnly="True"/>
+            </StackPanel>
+        </Grid>
 
         <Button x:Name="ExecuteButton" Click="ExecuteButton_OnClick">Обчислити</Button>
-        <Button x:Name="SuspendPrimeButton" Click="SuspendPrimeButton_OnClick">Повністю припинити потік для простих чисел</Button>
-        <Button x:Name="SuspendFibonacciButton" Click="SuspendFibonacciButton_OnClick">Повністю припинити потік для чисел фібоначчі</Button>
         <Button x:Name="StopPrimeButton" Click="StopPrimeButton_OnClick">Зупинити потік для простих чисел</Button>
-        <Button x:Name="ResumePrimeButton" Click="ResumePrimeButton_OnClick">Відновити потік для простих чисел</Button>
         <Button x:Name="StopFibonacciButton" Click="StopFibonacciButton_OnClick">Зупинити потік для чисел фібоначчі</Button>
+        <Button x:Name="PausePrimeButton" Click="PausePrimeButton_OnClick">Пауза потоку для простих чисел</Button>
+        <Button x:Name="PauseFibonacciButton" Click="PauseFibonacciButton_OnClick">Пауза потоку для чисел фібоначчі</Button>
+        <Button x:Name="ResumePrimeButton" Click="ResumePrimeButton_OnClick">Відновити потік для простих чисел</Button>
         <Button x:Name="ResumeFibonacciButton" Click="ResumeFibonacciButton_OnClick">Відновити потік для чисел фібоначчі</Button>
         <Button x:Name="RestartButton" Click="RestartButton_OnClick">Перезапустити потоки</Button>
         

@@ -17,11 +17,19 @@ namespace SPWPFHomework
     /// </summary>
     public partial class MainWindow : Window
     {
+        private StringBuilder _primeLogBuffer = new StringBuilder();
+        private int _primeUpdateCount = 0;
+
+        private StringBuilder _fibonacciLogBuffer = new StringBuilder();
+        private int _fibonacciUpdateCount = 0;
+
+        private const int BatchSize = 100; // Оновлювати кожні 100 чисел
+
         private CancellationTokenSource _primeCts;
         private CancellationTokenSource _fibCts;
 
-        private bool _primeIsPaused = true; // воно на true для того щоб показати як працює пауза.
-        private bool _fibonacciIsPaused = true;
+        private ManualResetEventSlim _primePauseEvent = new ManualResetEventSlim(true); // true = початковий стан "відновлено"
+        private ManualResetEventSlim _fibonacciPauseEvent = new ManualResetEventSlim(true);
 
         public MainWindow()
         {
@@ -35,74 +43,43 @@ namespace SPWPFHomework
 
         private void ExecuteButton_OnClick(object sender, RoutedEventArgs e)
         {
-            _primeCts = new CancellationTokenSource();
-            _fibCts = new CancellationTokenSource();
+            ExecuteCode();
+        }
 
-            LoggerTextBox.Clear();
+        private async void ExecuteCode()
+        {
+            PrimeLoggerTextBox.Clear();
+            FibonacciLoggerTextBox.Clear();
+
+            bool isTopSpecified = long.TryParse(TopTextBox.Text, out long top);
 
             if (!long.TryParse(BottomTextBox.Text, out long bottom) ||
-                !long.TryParse(TopTextBox.Text, out long top) ||
-                !long.TryParse(PrimeTextBox.Text, out long n))
+                !long.TryParse(FibonacciTextBox.Text, out long n))
             {
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    LoggerTextBox.Text += "\nВведіть правильні числа!";
-                });
-
+                // Обробка помилки вводу для bottom
+                Application.Current.Dispatcher.Invoke(() => LoggerTextBox.Text += "Введіть правильні числа!\n");
                 return;
             }
 
-            var primeThread = new Thread(() =>
+            _primeCts = new CancellationTokenSource();
+            _fibCts = new CancellationTokenSource();
+
+            var primeTask = Task.Run(() => ComputePrimes(bottom, isTopSpecified ? top : long.MaxValue, _primeCts.Token), _primeCts.Token);
+            var fibonacciTask = Task.Run(() => ComputeFibonacci(n, _fibCts.Token), _fibCts.Token);
+
+            try
             {
-
-                Application.Current.Dispatcher.Invoke(() =>
-                {
-                    LoggerTextBox.Text += "Починаємо підрахунок простих чисел...";
-                });
-
-                try
-                {
-                    var sw = Stopwatch.StartNew();
-                    long result = ComputePrimes(bottom, top, _primeCts.Token);
-
-                    sw.Stop();
-
-                    Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        LoggerTextBox.Text += $"\nРезультат: {result} простих чисел за {sw.ElapsedMilliseconds}ms";
-
-
-                        // Запуск Fibonacci після того, як прості числа завершились, виглядає костильно но що поробиш.
-                        var fibonacciThread = new Thread(() =>
-                        {
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                LoggerTextBox.Text += "\nПочинаємо підрахунок чисел фібоначчі...";
-                            });
-
-                            var sw2 = Stopwatch.StartNew();
-                            long result = ComputeFibonacci(n, _fibCts.Token);
-
-                            sw2.Stop();
-
-                            Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                LoggerTextBox.Text += $"\nРезультат: {result} за {sw2.ElapsedMilliseconds}ms";
-                            });
-                        });
-
-                        fibonacciThread.IsBackground = true; // без цього буде deadlock
-                        fibonacciThread.Start();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"\nПомилка: {ex}");
-                }
-            });
-
-            primeThread.IsBackground = true; // без цього буде deadlock
-            primeThread.Start();
+                await Task.WhenAll(primeTask, fibonacciTask); // Чекаємо завершення обох
+                LoggerTextBox.Text += "Обидва потоки завершено.\n";
+            }
+            catch (OperationCanceledException)
+            {
+                LoggerTextBox.Text += "Операція була скасована.\n";
+            }
+            catch (Exception ex)
+            {
+                LoggerTextBox.Text += $"Виникла помилка: {ex.Message}\n";
+            }
         }
 
         private void RestartButton_OnClick(object sender, RoutedEventArgs e)
@@ -110,43 +87,40 @@ namespace SPWPFHomework
             _primeCts?.Cancel();
             _fibCts?.Cancel();
 
-            _primeCts = new CancellationTokenSource();
-            _fibCts = new CancellationTokenSource();
+            _primePauseEvent.Set();
+            _fibonacciPauseEvent.Set();
 
-            _primeIsPaused = false;
-            _fibonacciIsPaused = false;
-
-            ExecuteButton_OnClick(sender, e);
-        }
-
-        private void SuspendPrimeButton_OnClick(object sender, RoutedEventArgs e)
-        {
-            _primeCts?.Cancel();
-        }
-
-        private void SuspendFibonacciButton_OnClick(object sender, RoutedEventArgs e)
-        {
-            _fibCts?.Cancel();
+            ExecuteCode();
         }
 
         private void StopPrimeButton_OnClick(object sender, RoutedEventArgs e)
         {
-            _primeIsPaused = true;
-        }
-
-        private void ResumePrimeButton_OnClick(object sender, RoutedEventArgs e)
-        {
-            _primeIsPaused = false;
+            _primeCts?.Cancel();
         }
 
         private void StopFibonacciButton_OnClick(object sender, RoutedEventArgs e)
         {
-            _fibonacciIsPaused = true;
+            _fibCts?.Cancel();
+        }
+
+        private void PausePrimeButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _primePauseEvent.Reset();
+        }
+
+        private void PauseFibonacciButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _fibonacciPauseEvent.Reset();
+        }
+
+        private void ResumePrimeButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            _primePauseEvent.Set();
         }
 
         private void ResumeFibonacciButton_OnClick(object sender, RoutedEventArgs e)
         {
-            _fibonacciIsPaused = false;
+            _fibonacciPauseEvent.Set();
         }
 
         long ComputePrimes(long bottom, long upTo, CancellationToken token)
@@ -165,32 +139,58 @@ namespace SPWPFHomework
             {
                 if (token.IsCancellationRequested)
                 {
-                    break;
+                    throw new OperationCanceledException(token);
                 }
 
-                while (_primeIsPaused)
+                _primePauseEvent.Wait(token);
+                if (token.IsCancellationRequested)
                 {
-                    Thread.Sleep(100);
+                    throw new OperationCanceledException(token);
                 }
 
                 bool isPrime = true;
-                for (long d = bottom; d * d <= n; d++)
+                for (long d = 2; d * d <= n; d++)
                 {
-                    if (n % d == 0) { isPrime = false; break; }
+                    if (n % d == 0)
+                    {
+                        isPrime = false;
+                        break;
+                    }
                 }
+
                 if (isPrime)
                 {
                     count++;
 
-                    Application.Current.Dispatcher.Invoke(() =>
+                    lock (_primeLogBuffer)
                     {
-                        LoggerTextBox.Text += $"\n{n}";
-                        LoggerTextBox.ScrollToEnd(); // авто-скрол вниз
-                    });
-
-                    Thread.Sleep(10); // для ефективності можна прибрати
+                        _primeLogBuffer.AppendLine(n.ToString());
+                        _primeUpdateCount++;
+                        if (_primeUpdateCount >= BatchSize)
+                        {
+                            Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                PrimeLoggerTextBox.AppendText(_primeLogBuffer.ToString());
+                                PrimeLoggerTextBox.ScrollToEnd();
+                            });
+                            _primeLogBuffer.Clear();
+                            _primeUpdateCount = 0;
+                        }
+                    }
                 }
             }
+
+            if (_primeLogBuffer.Length > 0)
+            {
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    PrimeLoggerTextBox.AppendText(_primeLogBuffer.ToString());
+                    PrimeLoggerTextBox.ScrollToEnd();
+                });
+                _primeLogBuffer.Clear();
+                _primeUpdateCount = 0;
+            }
+
             return count;
         }
 
@@ -207,25 +207,45 @@ namespace SPWPFHomework
             {
                 if (token.IsCancellationRequested)
                 {
-                    break;
+                    throw new OperationCanceledException(token);
                 }
 
-                while (_fibonacciIsPaused)
+                _fibonacciPauseEvent.Wait(token);
+                if (token.IsCancellationRequested)
                 {
-                    Thread.Sleep(100);
+                    throw new OperationCanceledException(token);
                 }
 
                 c = a + b;
                 a = b;
                 b = c;
 
+                lock (_fibonacciLogBuffer)
+                {
+                    _fibonacciLogBuffer.AppendLine(c.ToString());
+                    _fibonacciUpdateCount++;
+                    if (_fibonacciUpdateCount >= BatchSize)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            FibonacciLoggerTextBox.AppendText(_fibonacciLogBuffer.ToString());
+                            FibonacciLoggerTextBox.ScrollToEnd();
+                        });
+                        _fibonacciLogBuffer.Clear();
+                        _fibonacciUpdateCount = 0;
+                    }
+                }
+            }
+
+            if (_fibonacciLogBuffer.Length > 0)
+            {
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    LoggerTextBox.Text += $"\n{c}";
-                    LoggerTextBox.ScrollToEnd(); // авто-скрол вниз
+                    FibonacciLoggerTextBox.AppendText(_fibonacciLogBuffer.ToString());
+                    FibonacciLoggerTextBox.ScrollToEnd();
                 });
-
-                Thread.Sleep(10); // для ефективності можна прибрати
+                _fibonacciLogBuffer.Clear();
+                _fibonacciUpdateCount = 0;
             }
 
             return c;
